@@ -1,0 +1,6 @@
+{
+  "name": "Estethmer RL: Egyptian Stock Market Agent",
+  "description": "Reinforcement learning trading agent for the Egyptian Exchange (EGX) with automated Buy, Sell, and Hold actions, backtesting, and Estethmer Gemini AI intelligence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

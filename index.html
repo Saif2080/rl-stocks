@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        function isWsError(err) {
+          if (!err) return false;
+          var msg = String(err.message || err.reason || err.stack || err);
+          return msg.indexOf('WebSocket') !== -1 || msg.indexOf('websocket') !== -1;
+        }
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isWsError(event && event.reason)) {
+            event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+
+        window.addEventListener('error', function(event) {
+          if (isWsError(event && (event.error || event.message))) {
+            event.preventDefault();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+
+        var OrigWebSocket = window.WebSocket;
+        if (OrigWebSocket) {
+          window.WebSocket = function(url, protocols) {
+            var isHmr = false;
+            if (protocols === 'vite-hmr') isHmr = true;
+            if (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) isHmr = true;
+            if (typeof url === 'string' && (url.indexOf('vite-hmr') !== -1 || url.indexOf('/@vite') !== -1)) isHmr = true;
+
+            if (isHmr) {
+              var listeners = {};
+              var mockWs = {
+                readyState: 1,
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                protocol: 'vite-hmr',
+                url: url,
+                addEventListener: function(type, listener) {
+                  if (!listeners[type]) listeners[type] = [];
+                  listeners[type].push(listener);
+                  if (type === 'open') {
+                    setTimeout(function() {
+                      try { listener({ type: 'open', target: mockWs }); } catch (e) {}
+                    }, 0);
+                  }
+                },
+                removeEventListener: function(type, listener) {
+                  if (!listeners[type]) return;
+                  listeners[type] = listeners[type].filter(function(l) { return l !== listener; });
+                },
+                send: function() {},
+                close: function() {
+                  mockWs.readyState = 3;
+                  if (listeners['close']) {
+                    listeners['close'].forEach(function(l) {
+                      try { l({ type: 'close', wasClean: true, code: 1000, target: mockWs }); } catch (e) {}
+                    });
+                  }
+                }
+              };
+              return mockWs;
+            }
+
+            var ws = new OrigWebSocket(url, protocols);
+            ws.addEventListener('error', function(e) {
+              if (e.preventDefault) e.preventDefault();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            });
+            return ws;
+          };
+
+          window.WebSocket.prototype = OrigWebSocket.prototype;
+          window.WebSocket.CONNECTING = OrigWebSocket.CONNECTING;
+          window.WebSocket.OPEN = OrigWebSocket.OPEN;
+          window.WebSocket.CLOSING = OrigWebSocket.CLOSING;
+          window.WebSocket.CLOSED = OrigWebSocket.CLOSED;
+        }
+      })();
+    </script>
+    <title>Estethmer RL: Egyptian Stock Market Agent</title>
+    <meta name="description" content="Reinforcement learning trading agent for the Egyptian Exchange (EGX) with automated Buy, Sell, and Hold actions, backtesting, and Estethmer Gemini AI intelligence." />
+    <meta property="og:title" content="Estethmer RL: Egyptian Stock Market Agent" />
+    <meta property="og:description" content="Reinforcement learning trading agent for the Egyptian Exchange (EGX) with automated Buy, Sell, and Hold actions, backtesting, and Estethmer Gemini AI intelligence." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

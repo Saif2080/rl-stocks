@@ -1,0 +1,116 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation helper for UserProfile
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email'])
+        && data.uid is string && data.uid.size() <= 128 && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 200
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('riskTolerance' in data) || data.riskTolerance in ['conservative', 'moderate', 'aggressive'])
+        && (!('defaultStock' in data) || (data.defaultStock is string && data.defaultStock.size() <= 16));
+    }
+
+    // Validation helper for WatchlistItem
+    function isValidWatchlist(data) {
+      return data.keys().hasAll(['symbol', 'addedAt'])
+        && data.symbol is string && data.symbol.size() <= 16
+        && data.addedAt is string && data.addedAt.size() <= 64
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500))
+        && (!('targetPrice' in data) || data.targetPrice is number);
+    }
+
+    // Validation helper for SavedStrategy
+    function isValidStrategy(data) {
+      return data.keys().hasAll(['id', 'name', 'symbol', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.symbol is string && data.symbol.size() <= 16
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (!('learningRate' in data) || data.learningRate is number)
+        && (!('discountFactor' in data) || data.discountFactor is number)
+        && (!('rewardStrategy' in data) || (data.rewardStrategy is string && data.rewardStrategy.size() <= 64))
+        && (!('totalEpisodesTrained' in data) || data.totalEpisodesTrained is number)
+        && (!('finalReturnPct' in data) || data.finalReturnPct is number)
+        && (!('winRate' in data) || data.winRate is number)
+        && (!('qTableSize' in data) || data.qTableSize is number);
+    }
+
+    // Validation helper for StockNewsItem
+    function isValidNewsItem(data) {
+      return data.keys().hasAll(['id', 'symbol', 'title', 'summary', 'sentiment', 'rlDecisionImpact', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.symbol is string && data.symbol.size() <= 16
+        && data.title is string && data.title.size() <= 300
+        && data.summary is string && data.summary.size() <= 1200
+        && data.sentiment in ['BULLISH', 'BEARISH', 'NEUTRAL']
+        && data.rlDecisionImpact in ['BUY', 'SELL', 'HOLD']
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (!('sourceName' in data) || (data.sourceName is string && data.sourceName.size() <= 100))
+        && (!('sourceUrl' in data) || (data.sourceUrl is string && data.sourceUrl.size() <= 500))
+        && (!('publishedTime' in data) || (data.publishedTime is string && data.publishedTime.size() <= 100))
+        && (!('decisionRationale' in data) || (data.decisionRationale is string && data.decisionRationale.size() <= 500))
+        && (!('groundingConfidence' in data) || data.groundingConfidence is number);
+    }
+
+    // 2. User Profiles Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Disallow querying all users
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid; // immutable uid
+      allow delete: if isOwner(userId);
+
+      // User's Watchlist Subcollection
+      match /watchlist/{symbol} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(symbol) && isValidWatchlist(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      // User's Saved RL Strategies Subcollection
+      match /savedStrategies/{strategyId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(strategyId) && isValidStrategy(incoming());
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // 3. Stock News Collection (Google Search grounded market news)
+    match /stockNews/{newsId} {
+      // Anyone can read stock market news to aid trading decisions
+      allow get, list: if true;
+      // Authenticated users or server gateway can create or refresh news items
+      allow create, update: if isSignedIn() && isValidId(newsId) && isValidNewsItem(incoming());
+      allow delete: if false; // Immutable news history
+    }
+  }
+}

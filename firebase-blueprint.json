@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and preferences for Estethmer EGX RL platform",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 200 },
+        "riskTolerance": { "type": "string", "enum": ["conservative", "moderate", "aggressive"] },
+        "defaultStock": { "type": "string", "maxLength": 16 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "WatchlistItem": {
+      "title": "WatchlistItem",
+      "description": "Tracked EGX stocks pinned by the user with custom notes",
+      "type": "object",
+      "properties": {
+        "symbol": { "type": "string", "maxLength": 16 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "targetPrice": { "type": "number" },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["symbol", "addedAt"]
+    },
+    "SavedStrategy": {
+      "title": "SavedStrategy",
+      "description": "Saved RL hyperparameters, trained Q-table snapshot, and performance metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "symbol": { "type": "string", "maxLength": 16 },
+        "learningRate": { "type": "number" },
+        "discountFactor": { "type": "number" },
+        "rewardStrategy": { "type": "string", "maxLength": 64 },
+        "totalEpisodesTrained": { "type": "number" },
+        "finalReturnPct": { "type": "number" },
+        "winRate": { "type": "number" },
+        "qTableSize": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "symbol", "createdAt"]
+    },
+    "StockNewsItem": {
+      "title": "StockNewsItem",
+      "description": "Google Search Grounded market news and decision impact analysis for EGX equities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 16 },
+        "title": { "type": "string", "maxLength": 300 },
+        "summary": { "type": "string", "maxLength": 1200 },
+        "sourceName": { "type": "string", "maxLength": 100 },
+        "sourceUrl": { "type": "string", "maxLength": 500 },
+        "publishedTime": { "type": "string", "maxLength": 100 },
+        "sentiment": { "type": "string", "enum": ["BULLISH", "BEARISH", "NEUTRAL"] },
+        "rlDecisionImpact": { "type": "string", "enum": ["BUY", "SELL", "HOLD"] },
+        "decisionRationale": { "type": "string", "maxLength": 500 },
+        "groundingConfidence": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "symbol", "title", "summary", "sentiment", "rlDecisionImpact", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores user profile and app preferences"
+    },
+    "/users/{userId}/watchlist/{symbol}": {
+      "schema": "WatchlistItem",
+      "description": "User's personalized pinned stocks and alerts"
+    },
+    "/users/{userId}/savedStrategies/{strategyId}": {
+      "schema": "SavedStrategy",
+      "description": "User's saved Q-learning policies and configurations"
+    },
+    "/stockNews/{newsId}": {
+      "schema": "StockNewsItem",
+      "description": "Real-time Google Search grounded news and RL impact signals"
+    }
+  }
+}
